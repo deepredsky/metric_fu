@@ -1,3 +1,5 @@
+require "reek"
+
 module MetricFu
   class ReekGenerator < Generator
     def self.metric
@@ -80,13 +82,7 @@ module MetricFu
     end
 
     def examiner
-      require "reek"
-      # To load any changing dependencies such as "reek/configuration/app_configuration"
-      #   Added in 1.6.0 https://github.com/troessner/reek/commit/7f4ed2be442ca926e08ccc41945e909e8f710947
-      #   But not always loaded
-      require "reek/cli/application"
-
-      Reek.const_defined?(:Examiner) ? Reek.const_get(:Examiner) : Reek.const_get(:Core).const_get(:Examiner)
+      Reek::Examiner
     end
   end
 end
