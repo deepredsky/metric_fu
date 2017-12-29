@@ -10,18 +10,29 @@ module MetricFu
       files = files_to_analyze
       if files.empty?
         mf_log "Skipping Reek, no files found to analyze"
-        @output = run!([], config_files)
+        @output = run!([])
       else
-        @output = run!(files, config_files)
+        @output = run!(files)
       end
     end
 
-    def run!(files, config_files)
-      examiner.new(files, config_files)
+    def run!(files)
+      files.map do |file|
+        if configuration
+          examiner.new(file, configuration: configuration)
+        else
+          examiner.new(file)
+        end
+      end
+    end
+
+    def configuration
+      config_file && Reek::Configuration::AppConfiguration.from_path(config_file)
     end
 
     def analyze
-      @matches = @output.smells.group_by(&:source).collect do |file_path, smells|
+      smells = @output.flat_map(&:smells)
+      @matches = smells.group_by(&:source).collect do |file_path, smells|
         { file_path: file_path,
           code_smells: analyze_smells(smells) }
       end
@@ -55,13 +66,12 @@ module MetricFu
 
     def files_to_analyze
       dirs_to_reek = options[:dirs_to_reek]
-      files_to_reek = dirs_to_reek.map { |dir| Dir[File.join(dir, "**", "*.rb")] }.flatten
+      files_to_reek = dirs_to_reek.map { |dir| Pathname.glob(File.join(dir, "**", "*.rb")) }.flatten
       remove_excluded_files(files_to_reek)
     end
 
-    # TODO: Check that specified line config file exists
-    def config_files
-      Array(options[:config_file_pattern])
+    def config_file
+      options[:config_file]
     end
 
     def analyze_smells(smells)
