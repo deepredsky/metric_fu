@@ -11,30 +11,41 @@ describe MetricFu::ReekGenerator do
       allow(reek).to receive(:files_to_analyze).and_return(files_to_analyze)
     end
 
-    it "includes config file pattern into reek parameters when specified" do
-      options.merge!(config_file_pattern: "lib/config/*.reek")
-
-      expect(reek).to receive(:run!) do |_files, config_files|
-        expect(config_files).to eq(["lib/config/*.reek"])
-      end.and_return("")
-
-      reek.emit
-    end
-
-    it "passes an empty array when no config file pattern is specified" do
-      expect(reek).to receive(:run!) do |_files, config_files|
-        expect(config_files).to eq([])
-      end.and_return("")
-
-      reek.emit
-    end
-
     it "includes files to analyze into reek parameters" do
-      expect(reek).to receive(:run!) do |files, _config_files|
+      expect(reek).to receive(:run!) do |files|
         expect(files).to eq(["lib/foo.rb", "lib/bar.rb"])
       end.and_return("")
 
       reek.emit
+    end
+  end
+
+  describe "configuration" do
+    let(:options) { { dirs_to_reek: [] } }
+    let(:files_to_analyze) { ["lib/bar.rb"] }
+    let(:reek) { MetricFu::ReekGenerator.new(options) }
+
+    it "includes config file pattern into reek parameters when specified" do
+      options.merge!(config_file: "lib/config/foo.reek")
+      configuration = double("reek configuration")
+
+      allow(Reek::Configuration::AppConfiguration).to receive(:from_path)
+        .with("lib/config/foo.reek")
+        .and_return(configuration)
+
+      expect(Reek::Examiner).to receive(:new)
+        .with("lib/bar.rb", configuration: configuration)
+        .and_return([])
+
+      reek.run!(files_to_analyze)
+    end
+
+    it "passes no configuration when no config file is specified" do
+      expect(Reek::Examiner).to receive(:new)
+        .with("lib/bar.rb")
+        .and_return([])
+
+      reek.run!(files_to_analyze)
     end
   end
 
@@ -100,7 +111,7 @@ describe MetricFu::ReekGenerator do
                             lines: [6, 9])
         ]
         @lines = instance_double(@examiner, smells: @smells)
-        @reek.instance_variable_set(:@output, @lines)
+        @reek.instance_variable_set(:@output, [@lines])
         @matches = @reek.analyze
       end
 
@@ -134,30 +145,10 @@ describe MetricFu::ReekGenerator do
       end
     end
 
-    context "with reek 1.3 output" do
-      before :each do
-        @smells = [
-            double(source: "app/controllers/activity_reports_controller.rb",
-                   context: "ActivityReportsController#authorize_user",
-                   message: "calls current_user.primary_site_ids multiple times",
-                   subclass: "Duplication",
-                   lines: [2, 4]),
-        ]
-        @lines = instance_double(@examiner, smells: @smells)
-        @reek.instance_variable_set(:@output, @lines)
-        @matches = @reek.analyze
-      end
-
-      it "uses the subclass field to find the smell type" do
-        smell = @matches.first[:code_smells].first
-        expect(smell[:type]).to eq('Duplication')
-      end
-    end
-
     context "without reek warnings" do
       before :each do
         @lines = instance_double(@examiner, smells: [])
-        @reek.instance_variable_set(:@output, @lines)
+        @reek.instance_variable_set(:@output, [@lines])
         @matches = @reek.analyze
       end
 
