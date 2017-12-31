@@ -83,7 +83,7 @@ README
   end
 
   def failed_command_error
-    defined?(JRUBY_VERSION) ? "IOError" : "Errno::ENOENT"
+    defined?(JRUBY_VERSION) ? "SystemCommandError" : "Errno::ENOENT"
   end
 
   def fixtures_path
